@@ -9,55 +9,71 @@ class Filter:
     mask = []
     r = 1
     img = []
+    k = 1
 
-    def __init__(self, r, img):
+    def __init__(self, r, img, k):
         self.r = r
         self.img = img
-        self.mask = np.zeros((2 * r + 1, 2 * r + 1), dtype=np.uint8)
-        for i in range(0, 2 * r + 1):
-            for j in range(0, 2 * r + 1):
-                if ((i - r) ** 2 + (j - r) ** 2) <= r * r:
-                    self.mask[i, j] = 1
+        self.k = k
 
     def get_region(self, u, v):
         p = []
-        for i in range(0, 2 * self.r + 1):
-            for j in range(0, 2 * self.r + 1):
-                if self.mask[i, j] == 1:
-                    p.append(self.img[u + i - self.r, v + j - self.r])
+        for i in range(u - self.r, u + self.r + 1):
+            for j in range(v - self.r, v + self.r + 1):
+                p.append(self.img[i, j])
         return p
 
-    @staticmethod
-    def agg_distance(x, p):
-        d = 0
-        for q in p:
-            d = d + abs(np.uint8(x[0] - q[0])) + abs(np.uint8(x[1] - q[1])) + abs(np.uint8(x[2] - q[2]))
-        return d
+    def agg_distance(self, x, p):
+        if self.k == 1:
+            d = 0
+            for q in p:
+                d = d + abs(np.uint8(x[0] - q[0])) + abs(np.uint8(x[1] - q[1])) + abs(np.uint8(x[2] - q[2]))
+            return d
+        elif self.k == 2:
+            d = 0
+            for q in p:
+                dq = math.sqrt((np.uint8(x[0] - q[0]))**2 + (np.uint8(x[1] - q[1]))**2 + (np.uint8(x[2] - q[2]))**2)
+                d = d + dq
+            return d
+        else:
+            d = 0
+            for q in p:
+                m = [abs(np.uint8(x[0] - q[0])), abs(np.uint8(x[1] - q[1])), abs(np.uint8(x[2] - q[2]))]
+                dq = max(m)
+                d = d+dq
+            return d
+
+    def fun(self, x):
+        global p
+        u = ind
+        v = x[0]
+        v = v + self.r
+        pctr = x[1]
+        dctr = self.agg_distance(pctr, p)
+        dmin = math.inf
+        for pi in p:
+            d = self.agg_distance(pi, p)
+            if (d < dmin):
+                pmin = pi
+                dmin = d
+        for k in range(u - self.r, u + self.r + 1):
+            p.append(self.img[k, v + 1])
+        p = p[2*self.r+1:]
+        if dmin < dctr:
+            return pmin
+        else:
+            return pctr
 
     def fun2(self, x):
         global ind
         ind = x[0]
+        ind = ind + self.r
+        global p
+        p = self.get_region(ind, self.r)
         s = list(map(self.fun, enumerate(x[1])))
         return s
 
-    def fun(self, x):
-        u = ind
-        v = x[0]
-        pctr = x[1]
-        P = self.get_region(u, v)
-        dctr = self.agg_distance(pctr, P)
-        dmin = math.inf
-        for pi in P:
-            d = self.agg_distance(pi, P)
-            if (d < dmin):
-                pmin = pi
-                dmin = d
-        if (dmin < dctr):
-            return pmin
-        else:
-            return x[1]
-
-    def VMF(self):
+    def vmf(self):
         m = self.img.shape[0]
         n = self.img.shape[1]
         img2 = copy.copy(self.img)
